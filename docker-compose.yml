@@ -1,0 +1,36 @@
+version: '2'
+
+services:
+  tsdb:
+    image: timescale/pg_prometheus:latest
+    container_name: timescaledb
+    environment:
+     - POSTGRES_PASSWORD=insecure
+     - POSTGRES_INITDB_WALDIR=/var/lib/postgresql/data/pg_wal
+     - PGDATA=/var/lib/postgresql/data/pg_data
+    command: -cwal_level=archive -carchive_mode=on -carchive_command="/usr/bin/wget wale/wal-push/%f -O -" -carchive_timeout=600 -ccheckpoint_timeout=700 -cmax_wal_senders=1
+    networks:
+      - tsdb-net
+
+  wale:
+    image: timescale/timescaledb-wale:latest
+    container_name: wale
+    environment:
+     - WALE_LOG_DESTINATION=stderr
+     - PGWAL=/var/lib/postgresql/data/pg_wal
+     - PGDATA=/var/lib/postgresql/data/pg_data
+     - PGHOST=timescaledb
+     - PGPASSWORD=insecure
+     - PGUSER=postgres
+     - WALE_FILE_PREFIX=file://localhost/backups
+    volumes_from:
+      - tsdb
+    volumes:
+      - ./backups:/backups
+    networks:
+      - tsdb-net
+    depends_on:
+      - tsdb
+
+networks:
+  tsdb-net:
